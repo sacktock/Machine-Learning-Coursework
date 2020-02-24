@@ -1,0 +1,276 @@
+\documentclass[8pt]{article}
+\usepackage{tikz}
+\usepackage{tikz,fullpage}
+\usepackage[toc,page]{appendix}
+\usetikzlibrary{arrows,%
+	petri,%
+	topaths}%
+\usepackage{tkz-berge}
+\usepackage[position=top]{subfig}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{logicproof}
+\usepackage{adjustbox}
+\usepackage{tabularx}
+\usepackage{listings}
+\usepackage{float}
+\usepackage[linesnumbered,ruled]{algorithm2e}
+\usepackage[margin=0.65in]{geometry}
+
+\title{Software Methodologies COMP2231 2019/2020 Machine learning assignment}
+\author{clvp22} 
+\begin{document}
+\maketitle
+\section{Introduction}
+Machine learning is the method of enabling computers to learn from data, and it is used widely in society for a variety of applications. In this report we will be evaluating and discussing two closely related machine learning techniques: \textit{Decision Tree} [2] and \textit{Random Forest} [3]. Before we consider these two machine learning techniques, we need to understand the data we are working with and the problem we are trying to solve. We will be using the \textit{Open Univserity Analytics Learning} dataset [1], and our aim is to predict students' final mark using the data provided in the dataset.
+\section{Data Preperation}
+The first thing we need to conisder when preparing our data is, what features of the data are relevant predictors of a student's final result? The first thing that comes to mind is the student's coursework mark - we can calculate the student's coursework mark as follows: we inner join the \textit{student\_assessment} and \textit{asessments} table on \textit{id\_assessment}, we remove all \textit{'Exam'} type asessments, we multiply the \textit{score} by the \textit{weight} and divide by 100, then we then group by \textit{id\_student}, \textit{code\_module} and \textit{code\_presentation} and drop any of the irrelevant columns. When we do this we need to consider the module \textit{'GGG'}, this module has no weighted coursework, so we estimate \textit{'GGG'} students' coursework mark by averaging all their non \textit{'Exam'} type asessments.
+
+Secondly, we can use the \textit{vle} information to gain insight into how much each student has interacted with the \textit{vle} material for each of their courses. We can use similar database opertions from before to aggregate the total \textit{sum\_clicks} for each student for each module. 
+
+Finally, we need to select which information from the \textit{student\_info} table to include in our model. We will choose to keep: \textit{gender}, \textit{highest\_eductation}, \textit{age\_band}, \textit{num\_of\_prev\_attempts}, \textit{studied\_credits}, \textit{disability} and \textit{final\_result}. All other columns will be dropped. The numerical data in this table need not be changed, but the categorical data needs to be encoded in a meaningful way for the machine learning alrogithm. We will do this using the dictionary described below,
+\newline
+\newline
+\begin{adjustbox}{max width=\textwidth}
+\begin{lstlisting}
+encodings = {'gender' : {'M' : 0, 'F' : 1},
+             'highest_education' : {'Post Graduate Qualification' : 4, 'HE Qualification' : 3,
+                                    'A Level or Equivalent' : 2,'Lower Than A Level': 1,
+                                    'No Formal quals' : 0},
+             'disability' : {'Y': 0, 'N' : 1},
+             'age_band' : {'0-35' : 0, '35-55' : 1, '55<=' : 2},
+             'final_result' : {'Withdrawn' : 0, 'Fail': 1, 'Pass' : 2, 'Distinction': 3}
+             }
+\end{lstlisting}
+\end{adjustbox}
+\newline
+\newline
+\textit{region} has been excluded because we can't encode this in a meaningful heirachical way (we would need one hot encoding), and \textit{imd\_band} has been excluded because we have alot of \textit{NaN} values which can't be estimated easily in an accurate way.
+
+We then join our tables together giving us a collection of 9-tuples [ \textit{weighted\_score}, \textit{sum\_clicks}, \textit{gender}, \textit{highest\_education}, \textit{age\_band}, \textit{num\_of\_prev\_attempts}, \textit{studied\_credits}, \textit{disability}, \textit{final\_result} ] that constitute all our labelled examples, we can then visualize our data in the histogram Figure 1,
+\newline
+\begin{figure}[!h]
+\includegraphics[width=\textwidth]{student_data_hist.png}
+\caption{Histogram of the prepared student data }
+\end{figure}
+\newline
+\newpage
+Finally we split our dataset into \textit{train\_set} and \textit{test\_set}, and stratisfy it based on \textit{weighted\_score} using the following code,
+\newline
+\newline
+\begin{adjustbox}{max width=\textwidth}
+\begin{lstlisting}
+train_set, test_set = train_test_split(students, test_size=0.2, random_state=42)
+
+split = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
+for train_index, test_index in split.split(students, students['weighted_score']):
+    strat_train_set = students.reindex(train_index)
+    strat_test_set = students.reindex(test_index)
+\end{lstlisting}
+\end{adjustbox}
+\newline
+\newline
+Table 1 illustrates how the stratisifed sample \textit{strat\_train\_set} out performs the random sample \textit{train\_set},
+\newline
+\begin{table}[h!]
+  \centering
+  \begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{rrrrr}
+  Overall &  Stratisfied &    Random &  Rand. \%error &  Strat. \%error \\
+ 0.015329 &     0.013715 &  0.014724 &     -3.947368 &     -10.526316 \\
+ 0.013957 &     0.014522 &  0.013312 &     -4.624277 &       4.046243 \\
+ 0.009076 &     0.008673 &  0.007261 &    -20.000000 &      -4.444444 \\
+ 0.010891 &     0.011295 &  0.013312 &     22.222222 &       3.703704 \\
+ 0.013191 &     0.012303 &  0.013110 &     -0.611621 &      -6.727829 \\
+\end{tabular}
+\end{adjustbox}
+  \caption{Stratisifed vs Random Training set (head)}
+  \label{tab:label_test}
+\end{table}
+\section{Performance Measurement}
+Now that the data has been sufficiently prepared we can begin to train our model, we split \textit{strat\_train\_set} into \textit{student\_prepared} by dropping the \textit{final\_result} column, and \textit{student\_labels} by dropping everything but the \textit{final\_result} column. We can now train our first machine learning model - \textit{DecisionTreeClassifier} using our unlabelled examples \textit{student\_prepared}. Let's make some predictions from our model,
+\newline
+\newline
+\begin{adjustbox}{max width=\textwidth}
+\begin{lstlisting}
+Some example predictions:
+Predictions:  [0. 1. 2. 0. 2. 2. 3. 2. 1. 2.]
+Labels:  [0.0, 1.0, 2.0, 0.0, 2.0, 2.0, 3.0, 2.0, 1.0, 2.0]
+\end{lstlisting}
+\end{adjustbox}
+\newline
+\newline
+Our model clearly works, but this is not the full picture. The \textit{Root Mean Squared Error (rmse)} and \textit{Negative Mean Squared Error scores (nmse)} are displayed below.
+\newline
+\newline
+\begin{adjustbox}{max width=\textwidth}
+\begin{lstlisting}
+tree_rmse:  0.03696009256183448
+
+neg_mean_squared_error scores:
+Scores: [0.76318935 0.78289218 0.74613852 0.76785114 0.76304559 0.74598241
+ 0.76097678 0.76545214 0.74703829 0.75577997]
+Mean: 0.7598346364238957
+Standard deviation: 0.010999974774587523
+ \end{lstlisting}
+\end{adjustbox}
+\newline
+\newline
+Now lets train our second machine learning model - \textit{RandomForestClassifier} using our unlabelled examples \textit{student\_prepared}. We will set \textit{n\_estimators} to $100$, \textit{max\_features} will not be set, and \textit{bootstrap} will be set to \textit{True}. Again, let's make some predictions from our model,
+\newline
+\newline
+\begin{adjustbox}{max width=\textwidth}
+\begin{lstlisting}
+Some example predictions:
+Predictions:  [0. 1. 2. 0. 2. 2. 3. 2. 1. 2.]
+Labels:  [0.0, 1.0, 2.0, 0.0, 2.0, 2.0, 3.0, 2.0, 1.0, 2.0]
+\end{lstlisting}
+\end{adjustbox}
+\newline
+\newline
+Again, this model clearly works, but let's view the \textit{rmse} and \textit{nmse scores} below,
+\newline
+\newline
+\begin{adjustbox}{max width=\textwidth}
+\begin{lstlisting}
+forest_rmse:  0.03696009256183448
+
+neg_mean_squared_error scores:
+Scores: [0.66893871 0.69247152 0.66183473 0.6846412  0.68310441 0.66478101
+ 0.6846412  0.67263921 0.67107493 0.67769818]
+Mean: 0.6761825112406465
+Standard deviation: 0.009410679441062214
+\end{lstlisting}
+\end{adjustbox}
+\newline
+\newline
+Our results shows that we get an identical \textit{rmse} score for both the methods, but we get better \textit{nmse} scores for our \textit{RandomForestClassifier}, this suggests both methods are as accurate as eachother but \textit{RandomForestClassifier} is more precise. Let's see if we can imporve the accuracy of the \textit{RandomForestClassifier} by optimizing its parameters.
+\section{Parameter Search and Selection}
+\textit{note: this is where the report starts to differ from the classifier.py file}
+\newline
+In this section we aim to find the best parameters for our \textit{RandomForestClassifier} model, and gain insight into which features are more important than others. We start by perfoming a randomized parameter search using the following code,
+\newline
+\newline
+\begin{adjustbox}{max width=\textwidth}
+\begin{lstlisting}
+param_distribs = {
+    'n_estimators': randint(low=1, high=200),
+    'max_features': randint(low=1,high=8)
+    }
+forest_clf = RandomForestClassifier(random_state=42)
+rnd_search = RandomizedSearchCV(forest_clf, param_distributions=param_distribs,
+                                    n_iter=10, cv=5, scoring='neg_mean_squared_error',
+                                    random_state=42)
+rnd_search.fit(student_prepared, student_labels)
+\end{lstlisting}
+\end{adjustbox}
+\newline
+\newline
+The random search gives a variety of results each time it is run, but it tends to indicate that our \textit{RandomForestClassifier} model performs best with \textit{max\_features} set around 4 to 6, and \textit{n\_estimators} set between 100 and 200. Now we will perform a grid search to find the best paramters in this region using the code below,
+\newline
+\newline
+\begin{adjustbox}{max width=\textwidth}
+\begin{lstlisting}
+param_grid = [
+    {'n_estimators' : [100, 120, 160, 180, 200], 'max_features': [4, 5, 6]},
+    {'bootstrap' : [False], 'n_estimators' : [100, 120, 160, 180, 200], 'max_features' : [4, 5, 6]}
+    ]
+forest_clf = RandomForestClassifier(random_state=42)
+grid_search = GridSearchCV(forest_clf, param_grid, cv=5,
+                           scoring='neg_mean_squared_error',
+                           return_train_score=True)
+grid_search.fit(student_prepared, student_labels)
+\end{lstlisting}
+\end{adjustbox}
+\newline
+\newline
+The grid search returns the result,
+\newline
+\newline
+\begin{adjustbox}{max width=\textwidth}
+\begin{lstlisting}
+Best params:  {'max_features': 5, 'n_estimators': 200}
+\end{lstlisting}
+\end{adjustbox}
+\newline
+\newline
+We can also analyze the feature importances and decide whether to omit any features from our final model.
+\newline
+\newline
+\begin{adjustbox}{max width=\textwidth}
+\begin{lstlisting}
+Feature importances (grid search):  [0.43996086 0.35342127 0.02501951 0.04711172 0.02997045 0.0219651
+ 0.0663659  0.01618518]
+\end{lstlisting}
+\end{adjustbox}
+\newline
+\newline
+Clearly, \textit{weighted\_score} and \textit{sum\_clicks} are the most important features. On the other hand \textit{gender}, \textit{age\_band}, \textit{num\_of\_prev\_attempts} and \textit{disability} are all ten times less important than \textit{weighted\_score}. Let's omit the three least important features, \textit{gender}, \textit{num\_of\_prev\_attempts}, \textit{disability} and try to construct our final model. When we omit these three features we get these \textit{rmse} and \textit{nmse scores} from the \textit{RandomForestClassifier} below,
+\newline
+\newline
+\begin{adjustbox}{max width=\textwidth}
+\begin{lstlisting}
+forest_rmse:  0.055202706750248985
+
+neg_mean_squared_error scores:
+Scores: [0.67752019 0.70113953 0.65785493 0.69075419 0.67692234 0.68808644
+ 0.70319442 0.67029142 0.68579154 0.68079271]
+Mean: 0.683234773202325
+Standard deviation: 0.013021977129373592
+\end{lstlisting}
+\end{adjustbox}
+\newline
+\newline
+We appear to have a worse \textit{rmse} score and similar \textit{nmse} scores, so perhaps this model is not better? This also becomes evident when we compare how the two models perform on the \textit{strat\_test\_set}. We get an \textit{rmse} score of $0.6665966643913998$ for the original model, and an \textit{rmse} score of $0.6830890628509904$ for the new model. So, our final model includes all 8 of our selected features, and takes the parameters \{'max\_features'= 5, 'n\_estimators'= 200\}. Giving us a final \textit{rmse} score,
+\newline
+\newline
+\begin{adjustbox}{max width=\textwidth}
+\begin{lstlisting}
+final model strat_test_rsme:  0.6665966643913998
+\end{lstlisting}
+\end{adjustbox}
+\section{Comparison of Methods}
+Finally, to compare the two methods \textit{DecisionTreeClassifier} and \textit{RandomForestClassifier}, let's see how the \textit{DecisionTreeClassifier} performs on the test set \textit{strat\_test\_set},
+\newline
+\newline
+\begin{adjustbox}{max width=\textwidth}
+\begin{lstlisting}
+tree clf strat_test_rmse:  0.7534047037462983
+\end{lstlisting}
+\end{adjustbox}
+\newline
+\newline
+Clearly the \textit{DecisionTreeClassifier} model performs worse than the \textit{RandomForestClassifier} model. This is likely due to overfitting.
+\newline
+\textit{note: the DecisionTreeClassifier model is non-parametric so we can't optimize it. }
+\section{Conclusion}
+From this report we can draw conclusions about the dataset and the two machine learning methods \textit{DecisionTreeClassifier} and \textit{RandomForestClassifier}. We can say that the coursework score \textit{weighted\_score} and the vle interaction \textit{sum\_clicks}, are two good indications for predicting a student's final result. The other features that have been selected in this report while less signifigant are still useful for improving our model. Finally, we have demonstrated that the \textit{RandomForestClassifier} model deals with the problem of overfitting by extending and improving the \textit{DecisionTreeClassifier} model.
+\begin{thebibliography}{2}
+\bibitem{Dataset}Kuzilek, J., Hlosta, M., Zdrahal, Z.: Open University Learning Analystics Knowledge 2011 | Connecting the Technical, Pedagogical, and Social Dimensions of Learning Analytics, https://tekri.athabascau.ca/analytics/, last accessed 2019/02/21.
+\bibitem{Decision Trees}
+{Scikit-learn: Machine Learning in {P}ython},
+{Pedregosa, F. and Varoquaux, G. and Gramfort, A. and Michel, V.
+         and Thirion, B. and Grisel, O. and Blondel, M. and Prettenhofer, P.
+         and Weiss, R. and Dubourg, V. and Vanderplas, J. and Passos, A. and
+         Cournapeau, D. and Brucher, M. and Perrot, M. and Duchesnay, E.},
+ {Journal of Machine Learning Research},
+ {12},
+ {2825--2830},
+ {2011}
+ https://scikit-learn.org/stable/modules/tree.html
+\bibitem{Random Forest}
+{Scikit-learn: Machine Learning in {P}ython},
+{Pedregosa, F. and Varoquaux, G. and Gramfort, A. and Michel, V.
+         and Thirion, B. and Grisel, O. and Blondel, M. and Prettenhofer, P.
+         and Weiss, R. and Dubourg, V. and Vanderplas, J. and Passos, A. and
+         Cournapeau, D. and Brucher, M. and Perrot, M. and Duchesnay, E.},
+ {Journal of Machine Learning Research},
+ {12},
+ {2825--2830},
+ {2011}
+https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html
+\end{thebibliography}
+\end{document}
