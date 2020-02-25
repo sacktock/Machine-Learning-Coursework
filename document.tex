@@ -103,14 +103,14 @@ Labels:  [0.0, 1.0, 2.0, 0.0, 2.0, 2.0, 3.0, 2.0, 1.0, 2.0]
 \end{adjustbox}
 \newline
 \newline
-Our model clearly works, but this is not the full picture. The \textit{Root Mean Squared Error (rmse)} and \textit{Negative Mean Squared Error scores (nmse)} are displayed below.
+Our model clearly works, but this is not the full picture. The \textit{Root Mean Squared Error (rmse)} and \textit{Cross Val Scores (cvs)} are displayed below.
 \newline
 \newline
 \begin{adjustbox}{max width=\textwidth}
 \begin{lstlisting}
 tree_rmse:  0.03696009256183448
 
-neg_mean_squared_error scores:
+Cross Val Scores:
 Scores: [0.76318935 0.78289218 0.74613852 0.76785114 0.76304559 0.74598241
  0.76097678 0.76545214 0.74703829 0.75577997]
 Mean: 0.7598346364238957
@@ -131,14 +131,14 @@ Labels:  [0.0, 1.0, 2.0, 0.0, 2.0, 2.0, 3.0, 2.0, 1.0, 2.0]
 \end{adjustbox}
 \newline
 \newline
-Again, this model clearly works, but let's view the \textit{rmse} and \textit{nmse scores} below,
+Again, this model clearly works, but let's view the \textit{rmse} score and \textit{cvs} below,
 \newline
 \newline
 \begin{adjustbox}{max width=\textwidth}
 \begin{lstlisting}
 forest_rmse:  0.03696009256183448
 
-neg_mean_squared_error scores:
+Cross Val Scores:
 Scores: [0.66893871 0.69247152 0.66183473 0.6846412  0.68310441 0.66478101
  0.6846412  0.67263921 0.67107493 0.67769818]
 Mean: 0.6761825112406465
@@ -208,14 +208,14 @@ Feature importances (grid search):  [0.43996086 0.35342127 0.02501951 0.04711172
 \end{adjustbox}
 \newline
 \newline
-Clearly, \textit{weighted\_score} and \textit{sum\_clicks} are the most important features. On the other hand \textit{gender}, \textit{age\_band}, \textit{num\_of\_prev\_attempts} and \textit{disability} are all ten times less important than \textit{weighted\_score}. Let's omit the three least important features, \textit{gender}, \textit{num\_of\_prev\_attempts}, \textit{disability} and try to construct our final model. When we omit these three features we get these \textit{rmse} and \textit{nmse scores} from the \textit{RandomForestClassifier} below,
+Clearly, \textit{weighted\_score} and \textit{sum\_clicks} are the most important features. On the other hand \textit{gender}, \textit{age\_band}, \textit{num\_of\_prev\_attempts} and \textit{disability} are all ten times less important than \textit{weighted\_score}. Let's omit the three least important features, \textit{gender}, \textit{num\_of\_prev\_attempts}, \textit{disability} and try to construct our final model. When we omit these three features we get the \textit{rmse} score and \textit{cvs} from the \textit{RandomForestClassifier} below,
 \newline
 \newline
 \begin{adjustbox}{max width=\textwidth}
 \begin{lstlisting}
 forest_rmse:  0.055202706750248985
 
-neg_mean_squared_error scores:
+Cross Val Scores:
 Scores: [0.67752019 0.70113953 0.65785493 0.69075419 0.67692234 0.68808644
  0.70319442 0.67029142 0.68579154 0.68079271]
 Mean: 0.683234773202325
@@ -224,7 +224,7 @@ Standard deviation: 0.013021977129373592
 \end{adjustbox}
 \newline
 \newline
-We appear to have a worse \textit{rmse} score and similar \textit{nmse} scores, so perhaps this model is not better? This also becomes evident when we compare how the two models perform on the \textit{strat\_test\_set}. We get an \textit{rmse} score of $0.6665966643913998$ for the original model, and an \textit{rmse} score of $0.6830890628509904$ for the new model. So, our final model includes all 8 of our selected features, and takes the parameters \{'max\_features'= 5, 'n\_estimators'= 200\}. Giving us a final \textit{rmse} score,
+We appear to have a worse \textit{rmse} score and similar \textit{cvs}, so perhaps this model is not better? This also becomes evident when we compare how the two models perform on the \textit{strat\_test\_set}. We get an \textit{rmse} score of $0.6665966643913998$ for the original model, and an \textit{rmse} score of $0.6830890628509904$ for the new model. So, our final model includes all 8 of our selected features, and takes the parameters \{'max\_features'= 5, 'n\_estimators'= 200\}. Giving us a final \textit{rmse} score,
 \newline
 \newline
 \begin{adjustbox}{max width=\textwidth}

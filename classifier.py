@@ -8,7 +8,6 @@ import pandas as pd
 from sklearn import tree
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import OrdinalEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import cross_val_score
@@ -28,7 +27,8 @@ from sklearn.model_selection import StratifiedShuffleSplit
 ##          differences to the script used in parts of the report are the parameters to GridSearchCV and the initial feature selection.
 ##          It wll become clear in the report what parameters were changed and what features were dropped in the
 ##          'Parameter Search and Selection' part of the report.
-
+## -> This script should run on mira with: python3 classifer.py
+## -> This script should run 
 def prepare_student_data(student_info, student_registration, student_assessment,
                           student_vle, courses, assessments, vle):
     # simplified student info
@@ -108,7 +108,9 @@ students.replace(encodings, inplace=True)
 
 # Describe the data
 print('Prepared data:')
+print('Head:')
 print(students.head())
+print('Describe:')
 print(students.describe())
 print()
 
@@ -163,7 +165,8 @@ some_labels = student_labels[:10]
 print('Some example predictions:')
 print('Predictions: ', tree_clf.predict(some_data))
 print('Labels: ', list(some_labels))
-print('Examples: ',some_data)
+print('Examples:')
+print(some_data)
 
 # Test the model
 student_predictions = tree_clf.predict(student_prepared)
@@ -180,7 +183,7 @@ tree_rmse_scores = np.sqrt(-tree_scores)
 
 def display_scores(scores):
     print()
-    print('neg_mean_squared_error scores:')
+    print('Cross Val Scores:')
     print("Scores:", scores)
     print("Mean:", scores.mean())
     print("Standard deviation:", scores.std())
@@ -200,7 +203,8 @@ some_labels = student_labels[:10]
 print('Some example predictions:')
 print('Predictions: ', forest_clf.predict(some_data))
 print('Labels: ', list(some_labels))
-print('Examples: ',some_data)
+print('Examples: ')
+print(some_data)
 
 # Test the model
 student_predictions = forest_clf.predict(student_prepared)
@@ -240,12 +244,15 @@ grid_search = GridSearchCV(forest_clf, param_grid, cv=5,
                            return_train_score=True)
 grid_search.fit(student_prepared, student_labels)
 
-print()
-print('Best params: ',grid_search.best_params_)
-print('Best estimator: ',grid_search.best_estimator_)
-print('Grid search results: ',pd.DataFrame(grid_search.cv_results_))
-print()
+def display_results(search):
+    print()
+    print('Best params: ',search.best_params_)
+    print('Best estimator: ',search.best_estimator_)
+    print('Grid search results: ')
+    print(pd.DataFrame(search.cv_results_))
+    print()
 
+display_results(grid_search)
 # Now try a randomised search
 
 param_distribs = {
@@ -258,11 +265,7 @@ rnd_search = RandomizedSearchCV(forest_clf, param_distributions=param_distribs,
                                     random_state=42)
 rnd_search.fit(student_prepared, student_labels)
 
-print()
-print('Best params: ',rnd_search.best_params_)
-print('Best estimator: ', rnd_search.best_estimator_)
-print('Random search results: ', pd.DataFrame(rnd_search.cv_results_))
-print()
+display_results(rnd_search)
 
 # Pick the best model
 print()
